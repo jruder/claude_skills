@@ -5,8 +5,10 @@
  */
 
 import PptxGenJS from "pptxgenjs";
+import JSZip from "jszip";
 import { readdir } from "fs/promises";
 import { join, extname } from "path";
+import { discoverPrompts } from "./prompts";
 
 async function main() {
   const [slidesDir, outPath] = process.argv.slice(2);
@@ -26,6 +28,9 @@ async function main() {
     process.exit(1);
   }
 
+  // Auto-discover prompts
+  const prompts = await discoverPrompts(slidesDir);
+
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
 
@@ -35,12 +40,31 @@ async function main() {
     const ext = extname(file).slice(1).toLowerCase();
     const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
 
+    const slideNum = file.match(/\d+/)![0];
     const slide = pptx.addSlide();
     slide.addImage({ data: `data:${mime};base64,${base64}`, x: 0, y: 0, w: "100%", h: "100%" });
+
+    // Add per-slide prompt as speaker notes
+    if (prompts?.slides[slideNum]) {
+      slide.addNotes(prompts.slides[slideNum]);
+    }
+
     console.log(`  Added: ${file}`);
   }
 
-  await pptx.writeFile({ fileName: outPath });
+  // Write PPTX to buffer, then inject full prompts metadata via JSZip
+  const pptxBuf = await pptx.write({ outputType: "nodebuffer" }) as Buffer;
+
+  if (prompts) {
+    const zip = await JSZip.loadAsync(pptxBuf);
+    zip.file("deckPrompts.json", JSON.stringify(prompts, null, 2));
+    const finalBuf = await zip.generateAsync({ type: "nodebuffer" });
+    await Bun.write(outPath, finalBuf);
+    console.log(`  Injected deckPrompts.json into PPTX`);
+  } else {
+    await Bun.write(outPath, pptxBuf);
+  }
+
   console.log(`PPTX saved: ${outPath} (${slideFiles.length} slides)`);
 }
 

@@ -9,6 +9,7 @@
 
 import { readdir } from "fs/promises";
 import { join } from "path";
+import { discoverPrompts } from "./prompts";
 
 async function main() {
   const [slidesDir, outPath] = process.argv.slice(2);
@@ -40,6 +41,9 @@ async function main() {
     console.log(`  Embedded: ${file} (${(bytes.byteLength / 1024).toFixed(0)} KB)`);
   }
 
+  // Auto-discover and load prompts metadata
+  const prompts = await discoverPrompts(slidesDir);
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,7 +72,7 @@ async function main() {
 <div class="slide-container"><img id="slide" src="" alt="Slide"></div>
 <button class="nav-btn prev" onclick="go(-1)"></button>
 <button class="nav-btn next" onclick="go(1)"></button>
-<div class="controls"><span id="counter"></span> &middot; &larr;&rarr; or click &middot; F for fullscreen</div>
+<div class="controls"><span id="counter"></span> &middot; &larr;&rarr; or click &middot; F for fullscreen</div>${prompts ? `\n<script type="application/json" id="deck-prompts">${JSON.stringify(prompts)}</script>` : ""}
 <script>
 const slides = ${JSON.stringify(slides)};
 let current = 0;

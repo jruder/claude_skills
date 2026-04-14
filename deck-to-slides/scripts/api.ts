@@ -8,6 +8,7 @@ const MODEL = "google/gemini-3-pro-image-preview";
 interface ImageGenOptions {
   prompt: string;
   referenceImage?: string; // base64 data URI of an exemplar image
+  additionalImages?: { label: string; dataUri: string }[]; // extra reference images (e.g. logos)
   aspectRatio?: string;
 }
 
@@ -38,6 +39,23 @@ export async function generateImage(opts: ImageGenOptions): Promise<ImageGenResu
       type: "image_url",
       image_url: { url: opts.referenceImage },
     });
+  }
+
+  // Add any additional reference images (logos, assets)
+  if (opts.additionalImages?.length) {
+    for (const img of opts.additionalImages) {
+      contentParts.push({
+        type: "text",
+        text: img.label,
+      });
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: img.dataUri },
+      });
+    }
+  }
+
+  if (opts.referenceImage) {
     contentParts.push({
       type: "text",
       text: "Now generate the following slide in the same visual style:\n\n" + opts.prompt,

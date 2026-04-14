@@ -142,6 +142,31 @@ Each slide prompt should:
 - Describe accent elements specifically for this slide
 - End with "key notes" about what matters most visually
 
+### Per-slide image assets (slide-N.json)
+
+Any slide can have an optional `slide-N.json` file alongside its `slide-N.md` prompt. This JSON file is an array of image references that get passed to the model as additional visual context when generating that slide:
+
+```json
+[
+  { "path": "../logo.png", "label": "Brand logo — incorporate as a watermark on the ticket surface." },
+  { "path": "../slides/slide-1.jpg", "label": "Slide 1 output showing the branded ticket. Match this ticket's appearance." }
+]
+```
+
+Paths are resolved relative to the prompts directory. Labels tell the model *what the image is and how to use it*.
+
+**Extension flexibility:** Since Gemini randomly returns PNG or JPEG, the script auto-resolves image extensions. A JSON referencing `../slides/slide-1.png` will find `slide-1.jpg` if that's what exists. You can use any common image extension in the path and the script will find the actual file.
+
+**Visual consistency through back-references:** When a visual element (a branded ticket, a logo integration, a specific diagram) first appears on one slide and recurs on later slides, pass the *rendered output* of the first-occurrence slide as an asset to later slides. This is far more effective than passing the raw logo/asset multiple times, because:
+
+- The raw asset (e.g., a logo PNG) gets interpreted differently each time — different sizing, placement, and integration choices
+- A rendered slide output shows exactly how the asset was integrated into the visual system — the model matches that concrete result
+- This creates a visual chain: slide 1 establishes the canonical look, slides 3/4/5 reference slide 1's output to stay consistent
+
+**Principle:** If a slide shows something that appeared on a previous slide, include the first-occurrence slide's output in the JSON. The label should explain what element to match and why. Think of it as "here's what you already drew — keep it consistent."
+
+**Workflow implications:** This means slides with back-references should be generated *after* their reference slides. Generate in order, or re-generate dependent slides after updating their references. The generate script handles this naturally when run sequentially.
+
 ### Prompt craft principles
 
 These principles make the difference between prompts that produce what you want and prompts that produce plausible-looking wrong answers:
