@@ -1,85 +1,63 @@
 /**
  * Generate slide images using one-shot prompting with a selected exemplar.
  *
- * Usage: bun run generate.ts <prompts-dir> <slides-out-dir> [exemplar-path] [slide-numbers...]
+ * Usage: bun run generate.ts <prompts-dir> <slides-out-dir> [exemplar-path] [slide-ids...]
  *
- * Reads:  <prompts-dir>/brief.md, <prompts-dir>/slide-N.md
- *         <prompts-dir>/slide-N.json (optional — additional images for that slide)
- * Writes: <slides-out-dir>/slide-N.{png,jpg}
+ * Reads:  <prompts-dir>/brief.md, <prompts-dir>/slide-NNN.md
+ *         <prompts-dir>/slide-NNN.json (optional — additional images for that slide)
+ * Writes: <slides-out-dir>/slide-NNN.{png,jpg}
  *
  * If exemplar-path is provided, it's used as a one-shot style reference.
- * If no slide numbers given, auto-discovers all slide-N.md in prompts-dir.
+ * If no slide IDs given, auto-discovers all slide-NNN.md in prompts-dir.
  *
  * Per-slide JSON format (array):
  * [
  *   { "path": "../logo.png", "label": "Incorporate this logo into the ticket" },
- *   { "path": "../slides/slide-1.png", "label": "Ticket from slide 1 — maintain consistency" }
+ *   { "path": "../slides/slide-001.png", "label": "Ticket from slide 001 — maintain consistency" }
  * ]
  * Paths are resolved relative to the JSON file's directory (i.e. prompts-dir).
  */
 
 import { generateImage, imageToDataUri } from "./api";
+import { loadPromptAssets } from "./assets";
 import { mkdir, readdir } from "fs/promises";
-import { join, resolve, extname } from "path";
-import { Glob } from "bun";
-
-/**
- * Resolve an asset path, trying common image extensions if the exact path doesn't exist.
- * If multiple extensions exist (e.g. both slide-1.png and slide-1.jpg from different runs),
- * picks the most recently modified file to avoid using stale versions.
- */
-async function resolveAssetPath(path: string): Promise<string> {
-  const base = path.replace(/\.(png|jpg|jpeg|webp)$/i, "");
-  const candidates: { path: string; mtime: number }[] = [];
-
-  for (const ext of [".png", ".jpg", ".jpeg", ".webp"]) {
-    const candidate = base + ext;
-    const file = Bun.file(candidate);
-    if (await file.exists()) {
-      const stat = await file.stat();
-      candidates.push({ path: candidate, mtime: stat?.mtime?.getTime() ?? 0 });
-    }
-  }
-
-  if (candidates.length === 0) {
-    throw new Error(`Asset not found: ${path} (tried .png/.jpg/.jpeg/.webp)`);
-  }
-
-  // Pick the most recently modified file
-  candidates.sort((a, b) => b.mtime - a.mtime);
-  if (candidates.length > 1) {
-    console.log(`  Resolved: ${candidates[0].path} (newest of ${candidates.length} matches)`);
-  }
-  return candidates[0].path;
-}
+import { join } from "path";
 
 async function main() {
   const args = process.argv.slice(2);
   const promptsDir = args[0];
   const slidesOutDir = args[1];
-  const exemplarPath = args[2] && !args[2].match(/^\d+$/) ? args[2] : undefined;
-  const explicitSlides = args.slice(exemplarPath ? 3 : 2).map(Number).filter((n) => !isNaN(n));
+  const exemplarPath = args[2] && !args[2].match(/^\d{3}$/) ? args[2] : undefined;
+  const explicitSlides = args.slice(exemplarPath ? 3 : 2);
 
   if (!promptsDir || !slidesOutDir) {
-    console.error("Usage: bun run generate.ts <prompts-dir> <slides-out-dir> [exemplar-path] [slide-numbers...]");
+    console.error("Usage: bun run generate.ts <prompts-dir> <slides-out-dir> [exemplar-path] [slide-ids...]");
+    console.error("Slide IDs must be zero-padded, e.g. 001 002 013.");
     process.exit(1);
+  }
+
+  for (const id of explicitSlides) {
+    if (!id.match(/^\d{3}$/)) {
+      console.error(`Invalid slide ID "${id}". Use exactly three digits, e.g. 001.`);
+      process.exit(1);
+    }
   }
 
   const brief = await Bun.file(join(promptsDir, "brief.md")).text();
 
-  let slideNums: number[];
+  let slideIds: string[];
   if (explicitSlides.length > 0) {
-    slideNums = explicitSlides;
+    slideIds = explicitSlides;
   } else {
     const files = await readdir(promptsDir);
-    slideNums = files
-      .filter((f) => f.match(/^slide-\d+\.md$/))
-      .map((f) => parseInt(f.match(/\d+/)![0]))
-      .sort((a, b) => a - b);
+    slideIds = files
+      .filter((f) => f.match(/^slide-\d{3}\.md$/))
+      .map((f) => f.match(/^slide-(\d{3})\.md$/)![1])
+      .sort();
   }
 
-  if (slideNums.length === 0) {
-    console.error(`No slide prompts found in ${promptsDir}/`);
+  if (slideIds.length === 0) {
+    console.error(`No slide prompts found in ${promptsDir}/ (expected slide-NNN.md)`);
     process.exit(1);
   }
 
@@ -93,35 +71,23 @@ async function main() {
 
   await mkdir(slidesOutDir, { recursive: true });
 
-  for (const num of slideNums) {
-    const slidePrompt = await Bun.file(join(promptsDir, `slide-${num}.md`)).text().catch(() => null);
-    if (!slidePrompt) { console.error(`  Skipping slide ${num}: not found`); continue; }
+  for (const id of slideIds) {
+    const slidePrompt = await Bun.file(join(promptsDir, `slide-${id}.md`)).text().catch(() => null);
+    if (!slidePrompt) { console.error(`  Skipping slide ${id}: not found`); continue; }
 
-    // Load per-slide image assets if slide-N.json exists
-    let additionalImages: { label: string; dataUri: string }[] | undefined;
-    const jsonPath = join(promptsDir, `slide-${num}.json`);
-    const jsonFile = Bun.file(jsonPath);
-    if (await jsonFile.exists()) {
-      const entries: { path: string; label: string }[] = JSON.parse(await jsonFile.text());
-      additionalImages = [];
-      for (const entry of entries) {
-        const absPath = await resolveAssetPath(resolve(promptsDir, entry.path));
-        additionalImages.push({ label: entry.label, dataUri: await imageToDataUri(absPath) });
-        console.log(`  Asset: ${entry.path}`);
-      }
-    }
+    const additionalImages = await loadPromptAssets(promptsDir, id);
 
-    console.log(`Slide ${num}:`);
+    console.log(`Slide ${id}:`);
     const fullPrompt = [brief, "\n---\n", "Generate the following as a single 16:9 presentation slide image:", "", slidePrompt].join("\n");
 
     try {
       const result = await generateImage({ prompt: fullPrompt, referenceImage: exemplarDataUri, additionalImages });
       const ext = result.mimeType === "image/jpeg" ? "jpg" : "png";
-      const outPath = join(slidesOutDir, `slide-${num}.${ext}`);
+      const outPath = join(slidesOutDir, `slide-${id}.${ext}`);
 
       // Clean up any previous version with a different extension
       const otherExt = ext === "png" ? "jpg" : "png";
-      const stalePath = join(slidesOutDir, `slide-${num}.${otherExt}`);
+      const stalePath = join(slidesOutDir, `slide-${id}.${otherExt}`);
       await Bun.file(stalePath).exists().then(exists => {
         if (exists) {
           require("fs").unlinkSync(stalePath);

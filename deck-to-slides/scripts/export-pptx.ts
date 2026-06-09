@@ -20,11 +20,11 @@ async function main() {
 
   const files = await readdir(slidesDir);
   const slideFiles = files
-    .filter((f) => f.match(/^slide-\d+\.(png|jpg|jpeg)$/))
-    .sort((a, b) => parseInt(a.match(/\d+/)![0]) - parseInt(b.match(/\d+/)![0]));
+    .filter((f) => f.match(/^slide-\d{3}\.(png|jpg|jpeg)$/))
+    .sort();
 
   if (slideFiles.length === 0) {
-    console.error(`No slide images found in ${slidesDir}/`);
+    console.error(`No slide images found in ${slidesDir}/ (expected slide-NNN.png/jpg/jpeg)`);
     process.exit(1);
   }
 
@@ -40,7 +40,7 @@ async function main() {
     const ext = extname(file).slice(1).toLowerCase();
     const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
 
-    const slideNum = file.match(/\d+/)![0];
+    const slideNum = file.match(/\d{3}/)![0];
     const slide = pptx.addSlide();
     slide.addImage({ data: `data:${mime};base64,${base64}`, x: 0, y: 0, w: "100%", h: "100%" });
 

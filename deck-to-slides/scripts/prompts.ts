@@ -8,6 +8,7 @@ import { join, dirname } from "path";
 
 export interface PromptsMetadata {
   brief: string;
+  briefAssets?: any[];
   slides: Record<string, string>;
   assets: Record<string, any[]>;
 }
@@ -19,22 +20,25 @@ export async function discoverPrompts(slidesDir: string): Promise<PromptsMetadat
   if (!(await briefFile.exists())) return null;
 
   const brief = await briefFile.text();
+  const briefAssetsFile = Bun.file(join(promptsDir, "brief.json"));
+  const briefAssets = await briefAssetsFile.exists() ? JSON.parse(await briefAssetsFile.text()) : undefined;
   const slides: Record<string, string> = {};
   const assets: Record<string, any[]> = {};
 
   const files = await readdir(promptsDir).catch(() => [] as string[]);
   for (const f of files) {
-    const mdMatch = f.match(/^slide-(\d+)\.md$/);
+    const mdMatch = f.match(/^slide-(\d{3})\.md$/);
     if (mdMatch) {
       slides[mdMatch[1]] = await Bun.file(join(promptsDir, f)).text();
     }
-    const jsonMatch = f.match(/^slide-(\d+)\.json$/);
+    const jsonMatch = f.match(/^slide-(\d{3})\.json$/);
     if (jsonMatch) {
       assets[jsonMatch[1]] = JSON.parse(await Bun.file(join(promptsDir, f)).text());
     }
   }
 
   const assetCount = Object.keys(assets).length;
-  console.log(`  Found prompts metadata (brief + ${Object.keys(slides).length} slide prompts + ${assetCount} asset configs)`);
-  return { brief, slides, assets };
+  const briefAssetCount = briefAssets?.length ?? 0;
+  console.log(`  Found prompts metadata (brief + ${Object.keys(slides).length} slide prompts + ${assetCount} slide asset configs + ${briefAssetCount} brief assets)`);
+  return { brief, briefAssets, slides, assets };
 }

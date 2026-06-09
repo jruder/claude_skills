@@ -1,91 +1,167 @@
 ---
 name: deck-to-slides
-description: Generate presentation slide images from a markdown deck file using AI image generation (Gemini via OpenRouter). Use this skill when the user wants to turn a markdown deck, slide outline, or presentation brief into actual slide images, or when they mention generating slides, creating a slide deck from text, or image generation for presentations. Also use when the user references OpenRouter, Gemini image generation, or wants to create visual slides from written content.
+description: Create slide-image decks from markdown, outlines, or detailed presentation briefs, then assemble them into HTML and PowerPoint. Use this skill when the user wants generated presentation slides, a prompt set for slide images, a deck-level visual system, image-model slide generation through Codex-native tools or OpenRouter/Gemini scripts, or assembly/export of existing slide images.
 ---
 
-# Deck-to-Slides: AI Image Generation for Presentation Decks
+# Deck-to-Slides
 
-Turn a markdown deck file into a set of AI-generated presentation slide images using Google's Gemini image model via OpenRouter.
+Create a presentation as a sequence of 16:9 slide images, then export the image sequence to HTML and PowerPoint. The skill supports three execution modes:
+
+1. **Codex-native image generation**: Codex writes prompts and calls its available image-generation tool. Copy selected outputs into `slides/`.
+2. **External script generation**: use the bundled Bun scripts, which call Gemini through OpenRouter.
+3. **Assemble-only**: skip generation and export an existing `slides/` directory to `.html` and `.pptx`.
+
+Prefer the mode that matches the user's request and available tools. Keep image generation, prompt authoring, and export as separable steps so any step can be repeated without redoing the others.
 
 ## Output Layout
 
-Unless the user specifies otherwise, all outputs go **side-by-side with the input deck file**. For a deck at `project/deck.md`, the result looks like:
+Unless the user specifies otherwise, outputs go beside the input deck file. For `project/deck.md`:
 
-```
+```text
 project/
-  deck.md          ← input
-  deck.pptx        ← PowerPoint export
-  deck.html        ← HTML presentation export
-  slides/          ← individual slide images
-    slide-1.png
-    slide-2.jpg
+  deck.md
+  deck.pptx
+  deck.html
+  prompts/
+    brief.md
+    brief.json        # optional deck-level grounding images
+    slide-001.md
+    slide-001.json      # optional slide-specific grounding images
+    ...
+  slides/
+    slide-001.png
+    slide-002.png
     ...
 ```
 
-Intermediate/working files (prompts, bootstrap variants, exemplar) use a temp directory and are cleaned up after export, unless the user wants to keep them.
+Keep `prompts/` by default. The HTML and PPTX exporters embed prompt metadata when `prompts/` is a sibling of `slides/`, which makes the deck auditable and easier to regenerate.
 
-## Setup
+Use zero-padded three-digit slide IDs everywhere. The canonical convention is `slide-001.md`, `slide-001.json`, and `slide-001.png`. Do not create or consume `slide-1.*` or `01-title.*` files.
 
-Before first use, install script dependencies:
+## Setup For External Scripts
+
+Install dependencies once:
 
 ```bash
 cd <skill-path>/scripts && bun install
 ```
 
-The scripts that call the OpenRouter API (`bootstrap.ts`, `generate.ts`) need `OPENROUTER_API_KEY`. A key may already be configured in `<skill-path>/scripts/.env` — check there first. Those `bun run` commands must include `--env-file <skill-path>/scripts/.env` so the key is loaded automatically.
-
-If `<skill-path>/scripts/.env` doesn't exist or doesn't contain `OPENROUTER_API_KEY`, ask the user for their OpenRouter API key and create it:
-```
-OPENROUTER_API_KEY=sk-or-...
-```
-
-## How It Works
-
-Four phases: **Parse**, **Bootstrap**, **Generate**, **Export**. All scripts take explicit input/output paths.
-
-### Phase 1: Parse the Deck (Claude does this)
-
-Read the user's deck markdown file and write two things into a working `prompts/` directory:
-
-1. **`prompts/brief.md`** — artistic brief / visual system applying to ALL slides (colors with hex values, typography, layout rules, what NOT to do, recurring elements like footers and quote cards)
-2. **`prompts/slide-N.md`** — one file per slide, self-contained image generation prompt
-
-### Phase 2: Bootstrap (3 variants, pick best)
+The OpenRouter generation scripts need `OPENROUTER_API_KEY`. If `<skill-path>/scripts/.env` exists, include it in generation commands:
 
 ```bash
-bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/bootstrap.ts <slide-number> <prompts-dir> <out-dir>
+bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/generate.ts ...
 ```
 
-Example — bootstrap slide 1, writing variants next to the deck:
+If no key is available and the user still wants external script generation, ask for the key before calling `bootstrap.ts` or `generate.ts`. Export scripts do not need an API key.
+
+## Workflow
+
+### 1. Parse And Design The Deck
+
+Read the user's source material and write:
+
+- `prompts/brief.md`: the deck-level visual system and shared generation rules.
+- `prompts/slide-NNN.md`: one self-contained prompt per slide.
+- `prompts/brief.json`: optional shared visual references, such as style-guide images, font specimens, logos, color boards, screenshots, or diagrams.
+- `prompts/slide-NNN.json`: optional per-slide references.
+
+Use the source deck or agenda order as the slide order unless the user asks for a new ordering.
+
+### 2. Ground The Deck-Level Style
+
+The brief is the most important file. It should tell the model what the deck is, how it should feel, and what references actually mean. Include concrete guidance for:
+
+- **Audience and use**: live talk, panel prompt deck, workshop, sales deck, keynote, handout companion.
+- **Visual thesis**: the repeated visual grammar that carries the argument.
+- **Aspect and density**: 16:9, strong readability from the back of a room, target text density, whitespace expectations.
+- **Color system**: exact hex values and role assignments such as background, title, body text, accent, warning, muted linework, demo callout.
+- **Typography**: font family or font style, title/body/accent sizes in relative terms, weight, casing, and any forbidden typography.
+- **Composition rules**: margins, grid, recurring footer or progress marker, diagram style, image treatment, chart treatment.
+- **Grounding content**: how to use supplied images or references. Say whether a reference is for palette only, layout rhythm only, a literal object, a font sample, or a factual diagram.
+- **Brand rules**: where logos may appear, where they must not appear, and whether brand-like marks are forbidden.
+- **Negative guidance**: explicitly reject clip art, fake UI chrome, clutter, unreadable labels, generic gradients, accidental logos, or any other likely failure mode.
+
+Good grounding labels are specific:
+
+```json
+[
+  {
+    "path": "../background/style-guide.png",
+    "label": "Use only as a palette, whitespace, and timeline-linework reference. Do not copy the logo or repeat the star mark."
+  },
+  {
+    "path": "../background/font-sample.png",
+    "label": "Typography reference: match the clean geometric sans style and generous letter spacing, not the exact text."
+  }
+]
+```
+
+### 3. Write Per-Slide Prompts
+
+Each `slide-NNN.md` should include:
+
+- Slide title and role in the talk.
+- Full visible layout, including zones and relative proportions.
+- All on-screen text verbatim. Current image models can render exact text well enough, so include the actual words the slide should show.
+- Visual content and metaphor.
+- Any data, spec, repo, demo, or external source that the slide should link to.
+- Speaker/demo notes if useful. These will be embedded in exports as prompt metadata, not rendered on the image unless requested.
+- Negative guidance specific to the slide.
+
+For live-demo decks, include interstitial slides that link out to demos. A slide can be mostly visual with a URL, QR-style placeholder, terminal command, or short demo objective.
+
+### 4. Generate Images
+
+#### Codex-native mode
+
+Use the available image-generation tool with `brief.md`, the relevant `slide-NNN.md`, and any matching `brief.json` or `slide-NNN.json` assets. Generated images may be saved outside the project by the tool; copy selected outputs into `slides/slide-NNN.png` or `slides/slide-NNN.jpg`.
+
+Generate a small number of style candidates first when the visual system is unsettled. Once the user or agent selects the direction, generate slides in order, especially when later slides reference earlier rendered outputs.
+
+When consistency matters, use multiple explicit visual references with separate roles instead of one overloaded exemplar. A good deck often needs:
+
+- **Global style reference**: palette, linework, whitespace, icon treatment, and overall mood. Example: a timeline snapshot used only for colors and connector style.
+- **Typography/header reference**: title font feel, title weight, title position, margins, subtitle treatment, footer treatment, and density. Example: an approved title slide.
+- **Per-slide layout/content reference**: the current slide draft, sketch, screenshot, or source diagram for composition and factual content only.
+- **Literal asset reference**: a screenshot, product UI, chart, or artifact that should be reproduced or closely adapted.
+
+Label each reference by role in `brief.json` or `slide-NNN.json`, and repeat those roles in the generation prompt. Say exactly what to copy and what not to copy. For example, "Use Image A only for palette and thin timeline linework; do not copy its logo or star mark. Use Image B for header typography and margin rhythm; do not copy its content. Use Image C for this slide's layout and exact content." If the image-generation tool supports image references directly, pass the relevant files through `brief.json`/`slide-NNN.json` or display/load them before generation. If it does not, describe the references in `brief.md` and repeat the key style rules in every `slide-NNN.md`.
+
+For full-quality slide decks, request a standard 16:9 output size explicitly, usually `1920x1080`. Verify every generated image with `identify` or an equivalent image-inspection tool. If the active image-generation surface does not expose hard pixel-size control and returns a nearby nonstandard size, either regenerate with stronger size language or normalize a copy to the target canvas before export, preserving aspect ratio and documenting the normalization in the deck notes. Do not assume that “16:9” means the generated file is exactly `1920x1080`.
+
+#### External script mode
+
+Bootstrap three variants for a representative slide:
+
 ```bash
-bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/bootstrap.ts 1 ./prompts ./bootstrap
+bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/bootstrap.ts <slide-id> <prompts-dir> <bootstrap-out-dir>
 ```
 
-Show all 3 variants to the user. They pick the best. Then:
+Select one exemplar:
 
 ```bash
 bun run <skill-path>/scripts/select.ts ./bootstrap/variant-2.png ./exemplar.png
 ```
 
-### Phase 3: Generate All Slides
+Generate all slides:
 
 ```bash
-bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/generate.ts <prompts-dir> <slides-out-dir> [exemplar-path] [slide-numbers...]
+bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/generate.ts <prompts-dir> <slides-out-dir> [exemplar-path] [slide-ids...]
 ```
 
 Examples:
+
 ```bash
-# All slides, with one-shot exemplar, output beside the deck
 bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/generate.ts ./prompts ./slides ./exemplar.png
-
-# Just slides 3 and 5
-bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/generate.ts ./prompts ./slides ./exemplar.png 3 5
-
-# Without exemplar (zero-shot)
+bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/generate.ts ./prompts ./slides ./exemplar.png 003 005
 bun --env-file <skill-path>/scripts/.env run <skill-path>/scripts/generate.ts ./prompts ./slides
 ```
 
-### Phase 4: Export
+`brief.json` and `slide-NNN.json` are both passed as image references. Paths are resolved relative to the prompts directory.
+
+### 5. Export HTML And PowerPoint
+
+Use this for generated slides or assemble-only workflows:
 
 ```bash
 bun run <skill-path>/scripts/export-pptx.ts <slides-dir> <out.pptx>
@@ -93,98 +169,26 @@ bun run <skill-path>/scripts/export-html.ts <slides-dir> <out.html>
 ```
 
 Example:
+
 ```bash
 bun run <skill-path>/scripts/export-pptx.ts ./slides ./deck.pptx
 bun run <skill-path>/scripts/export-html.ts ./slides ./deck.html
 ```
 
-Then clean up working files:
-```bash
-rm -rf ./prompts ./bootstrap ./exemplar.png
-```
+## Prompt Craft
 
-## Thinking in the Medium
-
-Image generation produces slides that are fundamentally different from PowerPoint. Understanding what the medium unlocks helps you (and the user) make better creative decisions.
-
-**The slide is an image, not a layout.** PowerPoint composes rectangles — text boxes, image containers, shape primitives. Image generation composes a single unified visual field. Text, imagery, and structure are rendered together as one surface. Labels can sit naturally inside a diagram, a title can emerge from negative space, annotations can feel like handwriting on a blueprint. There's no "text layer floating over background layer."
-
-**Visual metaphor carries the argument.** Instead of illustrating a concept with a stock photo placed next to bullet points, the metaphor *is* the slide. A geological cross-section can encode time. A network diagram can encode relationships. A city skyline can encode scale. An architectural blueprint can encode planning. The model can render these as rich, detailed compositions that would require a professional illustrator in the PowerPoint world.
-
-**Style is a first-class creative decision.** Every slide deck has an implicit visual style — usually "default corporate template." With image generation, style becomes an active choice that communicates. Scientific illustration signals rigor. Loose ink sketches signal early-stage thinking. Clean vector graphics signal precision. Watercolor washes signal warmth. Woodcut aesthetics signal craft and history. Name the style explicitly — reference specific artists, publications, design movements, or illustration traditions.
-
-**Organic and handmade qualities are easy.** Subtle irregularity, hand-drawn line quality, naturalistic variation, textured surfaces — all the things that make a visual feel human and crafted — are trivial for image generation and nearly impossible in slide software. Lean into this. Specify "subtle organic irregularity" or "as if drawn with a confident pen" or "the controlled imperfection of a letterpress print."
-
-**Fewer words, more visual weight.** A generated slide is a backdrop for a live speaker, not a document. Aim for 5-30 words on screen. Let the visual do the work of orienting the audience, establishing mood, and encoding structure. The speaker provides the detail.
-
-## Writing Good Briefs and Prompts
-
-The brief and per-slide prompts are the most important inputs. The user may arrive with polished prompts, a rough outline, or just a topic — meet them where they are.
-
-### Brief (artistic system for the whole deck)
-
-A good brief:
-
-- **States the aesthetic in concrete terms** — name reference artists, publications, or design styles
-- **Specifies exact colors** with hex values and strict role assignments
-- **Defines typography modes** — what font style for titles vs body vs accents
-- **Describes what it is NOT** — explicitly forbid common AI failure modes (wobbly lines, fake textures, clip art, corporate gradients)
-- **Limits decorative elements** — specify a percentage of visual surface area (e.g., "~15%, not 80%")
-- **Defines recurring elements** — footer format, quote card format, any branded objects
-
-### Per-slide prompts
-
-Each slide prompt should:
-
-- Start with the slide title and a one-sentence role description
-- Specify layout zones (e.g., "left 55%, right 40%")
-- List all text content verbatim — the model renders exactly what you write
-- Describe accent elements specifically for this slide
-- End with "key notes" about what matters most visually
-
-### Per-slide image assets (slide-N.json)
-
-Any slide can have an optional `slide-N.json` file alongside its `slide-N.md` prompt. This JSON file is an array of image references that get passed to the model as additional visual context when generating that slide:
-
-```json
-[
-  { "path": "../logo.png", "label": "Brand logo — incorporate as a watermark on the ticket surface." },
-  { "path": "../slides/slide-1.jpg", "label": "Slide 1 output showing the branded ticket. Match this ticket's appearance." }
-]
-```
-
-Paths are resolved relative to the prompts directory. Labels tell the model *what the image is and how to use it*.
-
-**Extension flexibility:** Since Gemini randomly returns PNG or JPEG, the script auto-resolves image extensions. A JSON referencing `../slides/slide-1.png` will find `slide-1.jpg` if that's what exists. You can use any common image extension in the path and the script will find the actual file.
-
-**Visual consistency through back-references:** When a visual element (a branded ticket, a logo integration, a specific diagram) first appears on one slide and recurs on later slides, pass the *rendered output* of the first-occurrence slide as an asset to later slides. This is far more effective than passing the raw logo/asset multiple times, because:
-
-- The raw asset (e.g., a logo PNG) gets interpreted differently each time — different sizing, placement, and integration choices
-- A rendered slide output shows exactly how the asset was integrated into the visual system — the model matches that concrete result
-- This creates a visual chain: slide 1 establishes the canonical look, slides 3/4/5 reference slide 1's output to stay consistent
-
-**Principle:** If a slide shows something that appeared on a previous slide, include the first-occurrence slide's output in the JSON. The label should explain what element to match and why. Think of it as "here's what you already drew — keep it consistent."
-
-**Workflow implications:** This means slides with back-references should be generated *after* their reference slides. Generate in order, or re-generate dependent slides after updating their references. The generate script handles this naturally when run sequentially.
-
-### Prompt craft principles
-
-These principles make the difference between prompts that produce what you want and prompts that produce plausible-looking wrong answers:
-
-- **Describe the visible result, not the construction process.** Don't say "imagine X, then apply transformation Y." Say what the finished image looks like. The model renders from descriptions of outcomes, not from geometric construction steps.
-
-- **Describe the experience at two distances.** A good prompt says what the viewer sees from across the room vs up close. "From across the room it reads as three clusters connected by fine lines; up close each cluster reveals specific project names." This dual-distance thinking produces better compositions than pure spatial specification.
-
-- **Say what it must not become.** Image generators have default tendencies — glossy corporate aesthetics, clip art symbology, overcrowded compositions, photorealistic textures where abstraction was intended. An explicit "what to avoid" section prevents the most common failure modes and is as important as the positive description.
-
-- **Use dramatic differences, not subtle ones.** Small distinctions ("5px vs 7px") are invisible to the model. Describe differences that are obvious from across a room, using ratios or physical analogies ("fingertip-width vs fist-width"). If the difference isn't dramatic, it won't render.
-
-- **State spatial relationships as percentages.** "Positioned at approximately 42% from left, 52% from top" is more reliable than "slightly left of center." Percentages are unambiguous.
-
-- **Specify all on-screen text verbatim.** The model renders exactly what you write. Don't paraphrase or summarize — provide the literal strings.
+- Describe the visible result, not the construction process.
+- Say what the viewer sees from across the room and what appears up close.
+- Use concrete spatial relationships and ratios, not tiny pixel differences.
+- Include exact slide text when the deck needs text.
+- Keep generated slides legible as projected images; move detailed evidence, specs, and citations into notes or companion material.
+- Use reference images deliberately. A style reference should not become accidental repeated branding.
+- Regenerate individual slides when style or factual alignment is off; do not redo the whole deck unless the visual system changes.
 
 ## Troubleshooting
 
-- **"No image found in response"** — The model returned text-only. Try shortening the slide prompt.
-- **Inconsistent style** — Re-bootstrap and pick a stronger exemplar.
-- **Wrong aspect ratio** — Scripts default to 16:9. Edit `api.ts` to change `aspect_ratio`.
+- **No image found in response**: shorten the prompt or remove competing references.
+- **Inconsistent style**: create a stronger `brief.md`, use `brief.json`, or generate with an exemplar.
+- **References copied too literally**: tighten the asset label and add explicit negative guidance.
+- **Too much text**: split into two slides or move details into notes.
+- **Wrong aspect ratio**: scripts default to 16:9; edit `scripts/api.ts` only if the deck requires another ratio.
