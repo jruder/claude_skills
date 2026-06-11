@@ -11,3 +11,7 @@ Turn a markdown deck file into AI-generated presentation slide images using Gemi
 ### [babysit-codex](./babysit-codex)
 
 Monitor and guide a Codex (or other AI coding agent) session running in a tmux pane — track progress against a plan, intervene when it goes off track, and provide instructions when it pauses.
+
+### [transcribe-recording](./transcribe-recording)
+
+Transcribe local call recordings to HTML, JSON, and Markdown with Mistral/Voxtral diarization, then map raw speaker IDs to human names.

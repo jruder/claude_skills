@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transcribe Recording"
+  short_description: "Transcribe calls with speaker labels"
+  default_prompt: "Use $transcribe-recording to transcribe this call recording to HTML and Markdown with named speakers."
