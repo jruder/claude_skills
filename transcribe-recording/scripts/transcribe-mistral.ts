@@ -583,16 +583,28 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
   .speakers-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 0 0 18px; }
   .speakers-panel h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 10px; }
   .speakers-panel h2 .panel-hint { font-weight: 400; color: var(--muted); font-size: 11px; text-transform: none; letter-spacing: 0; }
-  .speaker-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
-  .speaker-row:last-child { border-bottom: none; }
-  .speaker-row .swatch { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
-  .speaker-row .raw-label { color: var(--muted); font-size: 11px; min-width: 56px; font-variant-numeric: tabular-nums; }
-  .speaker-row .name-input { flex: 1 1 200px; max-width: 320px; padding: 6px 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font: inherit; font-size: 14px; font-weight: 600; }
-  .speaker-row .name-input:focus { outline: none; border-color: var(--accent); }
-  .speaker-row .stat { color: var(--muted); font-size: 12px; min-width: 90px; }
-  .speaker-row .visibility { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
-  .speaker-row .visibility input { margin: 0; }
-  .speaker-row.muted .name-input, .speaker-row.muted .stat { opacity: 0.5; }
+  .speaker-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .speaker-table col.swatch-col { width: 28px; }
+  .speaker-table col.raw-col { width: 300px; }
+  .speaker-table col.stat-col { width: 130px; }
+  .speaker-table col.visibility-col { width: 74px; }
+  .speaker-table td { padding: 10px 8px 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .speaker-table tr:last-child td { border-bottom: none; }
+  .speaker-table .swatch { display: block; width: 14px; height: 14px; border-radius: 50%; margin: 0 auto; }
+  .speaker-table .raw-label { display: block; color: var(--muted); font-size: 11px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .speaker-table .name-input { width: 100%; min-width: 0; padding: 6px 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font: inherit; font-size: 14px; font-weight: 600; }
+  .speaker-table .name-input:focus { outline: none; border-color: var(--accent); }
+  .speaker-table .stat { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .speaker-table .visibility { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+  .speaker-table .visibility input { margin: 0; }
+  .speaker-table tr.muted .name-input, .speaker-table tr.muted .stat { opacity: 0.5; }
+  @media (max-width: 760px) {
+    .speaker-table col.raw-col { width: 38%; }
+    .speaker-table col.stat-col { width: 100px; }
+    .speaker-table col.visibility-col { width: 54px; }
+    .speaker-table td { padding-right: 6px; }
+    .speaker-table .visibility span { display: none; }
+  }
   .turn { display: grid; grid-template-columns: 90px 110px 1fr; gap: 12px; padding: 10px 12px; border-radius: 10px; margin: 0 0 6px; align-items: start; }
   .turn:hover { background: var(--panel); }
   .turn .timestamp { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
@@ -603,6 +615,20 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
   footer { color: var(--muted); font-size: 12px; max-width: 980px; margin: 16px auto 0; padding: 0 20px 30px; }
   .empty { color: var(--muted); padding: 30px 0; text-align: center; }
   .stats { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+  .markdown-view { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
+  .markdown-view h2, .markdown-view h3 { margin: 0 0 12px; line-height: 1.2; }
+  .markdown-view h2 { font-size: 20px; }
+  .markdown-view h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .markdown-view .markdown-actions { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+  .markdown-view button { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 13px; cursor: pointer; }
+  .markdown-view table { width: 100%; border-collapse: collapse; margin: 0 0 22px; table-layout: fixed; }
+  .markdown-view th, .markdown-view td { text-align: left; border-bottom: 1px solid var(--border); padding: 7px 8px 7px 0; vertical-align: top; }
+  .markdown-view th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .markdown-view .md-turn { margin: 0 0 14px; }
+  .markdown-view .md-turn strong { color: var(--text); }
+  .markdown-view .md-turn time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  body.markdown-mode .interactive-view { display: none; }
+  body:not(.markdown-mode) .markdown-view { display: none; }
   details.raw { margin-top: 30px; }
   details.raw summary { cursor: pointer; color: var(--muted); }
   details.raw pre { background: var(--panel); padding: 12px; border-radius: 8px; overflow: auto; max-height: 400px; font-size: 11px; }
@@ -619,6 +645,7 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
   </div>
 </header>
 <main>
+  <section class="interactive-view">
   <div class="toolbar">
     <input id="search" type="search" placeholder="Search transcript…" />
     <select id="gap-select" title="Coalesce gap (seconds)">
@@ -628,11 +655,21 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
       <option value="999">No gap split</option>
     </select>
     <button id="copy-text" type="button">Copy plain text</button>
+    <button id="markdown-toggle" type="button" title="Show rendered Markdown view">Markdown view</button>
     <button id="download-json" type="button">Download JSON</button>
   </div>
   <section class="speakers-panel">
-    <h2>Speakers <span class="panel-hint">edit names below · same name merges speakers · names persist in this browser</span></h2>
-    <div id="speaker-rows"></div>
+    <h2>Speakers <span class="panel-hint">edit names below · same name collapses raw speakers · names persist in this browser</span></h2>
+    <table class="speaker-table">
+      <colgroup>
+        <col class="swatch-col" />
+        <col class="raw-col" />
+        <col class="name-col" />
+        <col class="stat-col" />
+        <col class="visibility-col" />
+      </colgroup>
+      <tbody id="speaker-rows"></tbody>
+    </table>
   </section>
   <div class="stats" id="stats"></div>
   <div id="turns"></div>
@@ -641,6 +678,8 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
     <summary>Raw chunk responses (debug)</summary>
     <pre id="raw"></pre>
   </details>
+  </section>
+  <section id="markdown-view" class="markdown-view" aria-live="polite"></section>
 </main>
 <footer>
   <div>Generated by <code>devtools/transcribe-mistral.ts</code> · self-contained, opens with <code>file://</code></div>
@@ -649,7 +688,7 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
 <script>
 (function() {
   const data = JSON.parse(document.getElementById("transcript-data").textContent);
-  const palette = ["#6aa9ff","#ffb86c","#7ee787","#ff7b9c","#c39bff","#ffd866","#5ad1ff","#f08bf2","#9ece6a","#ff9e64","#7dcfff","#bb9af7","#e0af68","#73daca","#f7768e"];
+  const palette = ["#56B4E9","#E69F00","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7","#BBBBBB"];
   const storageKey = "stt-aliases::" + (data.source || "transcript");
 
   // alias: rawSpeaker -> displayName (defaults to rawSpeaker)
@@ -672,6 +711,8 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
     });
   });
 
+  document.getElementById("markdown-toggle").addEventListener("click", toggleMarkdownView);
+
   document.getElementById("download-json").addEventListener("click", () => {
     const out = JSON.parse(JSON.stringify(data));
     out.aliases = Object.fromEntries(aliases);
@@ -691,6 +732,22 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
   const search = document.getElementById("search");
   search.addEventListener("input", render);
   document.getElementById("gap-select").addEventListener("change", () => { cachedGap = null; render(); });
+  document.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && String(ev.key).toLowerCase() === "a" && !isTextControl(ev.target)) {
+      ev.preventDefault();
+      showMarkdownView();
+      selectMarkdownView();
+    }
+  });
+  document.addEventListener("copy", (ev) => {
+    if (!document.body.classList.contains("markdown-mode")) return;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    if (!ev.clipboardData) return;
+    ev.clipboardData.setData("text/plain", markdownText());
+    ev.clipboardData.setData("text/html", document.getElementById("markdown-content").innerHTML);
+    ev.preventDefault();
+  });
 
   let cachedTurns = null;
   let cachedGap = null;
@@ -731,54 +788,77 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
   }
 
   function uniqueDisplayNames() {
-    const seen = [];
-    for (const sp of data.speakers) {
-      const name = displayName(sp);
-      if (!seen.includes(name)) seen.push(name);
-    }
-    return seen;
+    return speakerGroups().map((group) => group.name);
   }
 
-  function buildLegend() {
-    const container = document.getElementById("speaker-rows");
-    container.innerHTML = "";
+  function speakerGroups() {
+    const groups = [];
+    const byName = new Map();
+    for (const sp of data.speakers) {
+      const name = displayName(sp);
+      let group = byName.get(name);
+      if (!group) {
+        group = { name, speakers: [] };
+        byName.set(name, group);
+        groups.push(group);
+      }
+      group.speakers.push(sp);
+    }
+    return groups;
+  }
 
+  function speakerSummary() {
     const wordCounts = new Map();
     const durationMs = new Map();
     for (const w of data.words) {
       wordCounts.set(w.speaker, (wordCounts.get(w.speaker) || 0) + 1);
       durationMs.set(w.speaker, (durationMs.get(w.speaker) || 0) + Math.max(0, (w.endMs || w.startMs) - w.startMs));
     }
+    return speakerGroups().map((group) => {
+      const wc = group.speakers.reduce((total, sp) => total + (wordCounts.get(sp) || 0), 0);
+      const durMs = group.speakers.reduce((total, sp) => total + (durationMs.get(sp) || 0), 0);
+      return { ...group, wordCount: wc, durationMs: durMs };
+    });
+  }
 
-    for (const sp of data.speakers) {
-      const name = displayName(sp);
+  function buildLegend() {
+    const container = document.getElementById("speaker-rows");
+    container.innerHTML = "";
+
+    for (const group of speakerSummary()) {
+      const name = group.name;
       if (!displayVisible.has(name)) displayVisible.set(name, true);
-      const row = document.createElement("div");
-      row.className = "speaker-row";
+      const row = document.createElement("tr");
       if (!displayVisible.get(name)) row.classList.add("muted");
 
+      const swatchCell = document.createElement("td");
       const swatch = document.createElement("span");
       swatch.className = "swatch";
       swatch.style.background = colorFor(name);
+      swatchCell.appendChild(swatch);
 
+      const rawCell = document.createElement("td");
       const rawLabel = document.createElement("span");
       rawLabel.className = "raw-label";
-      rawLabel.textContent = sp;
+      rawLabel.textContent = group.speakers.join(", ");
+      rawLabel.title = "Raw speakers: " + group.speakers.join(", ");
+      rawCell.appendChild(rawLabel);
 
+      const nameCell = document.createElement("td");
       const input = document.createElement("input");
       input.type = "text";
       input.className = "name-input";
       input.value = name;
-      input.placeholder = sp;
+      input.placeholder = group.speakers[0];
       input.spellcheck = false;
-      input.setAttribute("aria-label", "Display name for " + sp);
+      input.setAttribute("aria-label", "Display name for " + group.speakers.join(", "));
 
       const commit = () => {
         const next = input.value.trim();
-        const newName = next || sp;
-        if (newName === aliases.get(sp)) return;
-        const oldName = displayName(sp);
-        aliases.set(sp, newName);
+        const newName = next || group.speakers[0];
+        if (newName === name) return;
+        const oldName = name;
+        for (const sp of group.speakers) aliases.set(sp, newName);
         saveAliases();
         // carry visibility from old name to new name if needed
         if (!displayVisible.has(newName) && displayVisible.has(oldName)) {
@@ -788,35 +868,38 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
       };
       input.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
-        if (ev.key === "Escape") { input.value = displayName(sp); input.blur(); }
+        if (ev.key === "Escape") { input.value = name; input.blur(); }
       });
       input.addEventListener("blur", commit);
+      nameCell.appendChild(input);
 
+      const statCell = document.createElement("td");
       const stat = document.createElement("span");
       stat.className = "stat";
-      const wc = wordCounts.get(sp) || 0;
-      const dur = formatDur(durationMs.get(sp) || 0);
-      stat.textContent = wc.toLocaleString() + " words · " + dur;
+      stat.textContent = group.wordCount.toLocaleString() + " words · " + formatDur(group.durationMs);
+      statCell.appendChild(stat);
 
+      const visibilityCell = document.createElement("td");
       const visLabel = document.createElement("label");
       visLabel.className = "visibility";
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = displayVisible.get(name) !== false;
       cb.addEventListener("change", () => {
-        displayVisible.set(displayName(sp), cb.checked);
+        displayVisible.set(name, cb.checked);
         render();
       });
       const visText = document.createElement("span");
       visText.textContent = "show";
       visLabel.appendChild(cb);
       visLabel.appendChild(visText);
+      visibilityCell.appendChild(visLabel);
 
-      row.appendChild(swatch);
-      row.appendChild(rawLabel);
-      row.appendChild(input);
-      row.appendChild(stat);
-      row.appendChild(visLabel);
+      row.appendChild(swatchCell);
+      row.appendChild(rawCell);
+      row.appendChild(nameCell);
+      row.appendChild(statCell);
+      row.appendChild(visibilityCell);
       container.appendChild(row);
     }
   }
@@ -856,6 +939,140 @@ function renderHtmlViewer(doc: TranscriptDoc): string {
       cachedGap = gap;
     }
     return cachedTurns;
+  }
+
+  function toggleMarkdownView() {
+    const next = !document.body.classList.contains("markdown-mode");
+    if (next) showMarkdownView();
+    else document.body.classList.remove("markdown-mode");
+  }
+
+  function showMarkdownView() {
+    renderMarkdownView();
+    document.body.classList.add("markdown-mode");
+  }
+
+  function selectMarkdownView() {
+    const view = document.getElementById("markdown-content");
+    const range = document.createRange();
+    range.selectNodeContents(view);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function renderMarkdownView() {
+    const view = document.getElementById("markdown-view");
+    view.innerHTML = "";
+
+    const actions = document.createElement("div");
+    actions.className = "markdown-actions";
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.textContent = "Copy Markdown";
+    copy.addEventListener("click", () => navigator.clipboard.writeText(markdownText()));
+    const back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "Back to editor";
+    back.addEventListener("click", toggleMarkdownView);
+    actions.appendChild(copy);
+    actions.appendChild(back);
+    view.appendChild(actions);
+
+    const content = document.createElement("div");
+    content.id = "markdown-content";
+    view.appendChild(content);
+
+    const title = document.createElement("h2");
+    title.textContent = "Transcript - " + (data.source.split("/").pop() || "recording");
+    content.appendChild(title);
+
+    const meta = document.createElement("p");
+    meta.textContent = "Duration: " + formatDur(data.durationMs) + " · Speakers: " + uniqueDisplayNames().join(", ");
+    content.appendChild(meta);
+
+    const speakerHeading = document.createElement("h3");
+    speakerHeading.textContent = "Speakers";
+    content.appendChild(speakerHeading);
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    for (const label of ["Name", "Raw speakers", "Words", "Duration"]) {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headerRow.appendChild(th);
+    }
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    for (const group of speakerSummary()) {
+      const row = document.createElement("tr");
+      for (const value of [group.name, group.speakers.join(", "), group.wordCount.toLocaleString(), formatDur(group.durationMs)]) {
+        const td = document.createElement("td");
+        td.textContent = value;
+        row.appendChild(td);
+      }
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+    content.appendChild(table);
+
+    const transcriptHeading = document.createElement("h3");
+    transcriptHeading.textContent = "Transcript";
+    content.appendChild(transcriptHeading);
+    for (const turn of currentTurns()) {
+      const dn = displayName(turn.speaker);
+      if (!displayVisible.get(dn)) continue;
+      const p = document.createElement("p");
+      p.className = "md-turn";
+      const strong = document.createElement("strong");
+      const time = document.createElement("time");
+      time.textContent = "[" + formatDur(turn.startMs) + "]";
+      strong.appendChild(time);
+      strong.append(" " + dn + ": ");
+      p.appendChild(strong);
+      p.append(turn.text);
+      content.appendChild(p);
+    }
+  }
+
+  function markdownText() {
+    const lines = [];
+    lines.push("# Transcript - " + (data.source.split("/").pop() || "recording"));
+    lines.push("");
+    lines.push("- Source: " + data.source);
+    lines.push("- Generated: " + data.generatedAt);
+    lines.push("- Model: " + data.model);
+    lines.push("- Duration: " + formatDur(data.durationMs));
+    lines.push("- Speakers: " + uniqueDisplayNames().join(", "));
+    lines.push("");
+    lines.push("## Speakers");
+    lines.push("");
+    lines.push("| Name | Raw speakers | Words | Duration |");
+    lines.push("| --- | --- | ---: | ---: |");
+    for (const group of speakerSummary()) {
+      lines.push("| " + escapeMarkdownTable(group.name) + " | " + escapeMarkdownTable(group.speakers.join(", ")) + " | " + group.wordCount.toLocaleString() + " | " + formatDur(group.durationMs) + " |");
+    }
+    lines.push("");
+    lines.push("## Transcript");
+    lines.push("");
+    for (const turn of currentTurns()) {
+      const dn = displayName(turn.speaker);
+      if (!displayVisible.get(dn)) continue;
+      lines.push("**[" + formatDur(turn.startMs) + "] " + dn + ":** " + turn.text);
+      lines.push("");
+    }
+    return lines.join("\\n");
+  }
+
+  function escapeMarkdownTable(value) {
+    return String(value).replace(/\\|/g, "\\\\|");
+  }
+
+  function isTextControl(target) {
+    if (!target || !target.tagName) return false;
+    const tag = target.tagName.toLowerCase();
+    return tag === "input" || tag === "textarea" || target.isContentEditable;
   }
 
   function render() {

@@ -21,6 +21,8 @@ const doc = JSON.parse(readFileSync(args.input, "utf8")) as TranscriptDoc;
 const aliases = doc.aliases ?? {};
 const words = doc.words ?? [];
 const speakers = Array.from(new Set(words.map((word) => word.speaker))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+const wordCounts = new Map<string, number>();
+for (const word of words) wordCounts.set(word.speaker, (wordCounts.get(word.speaker) ?? 0) + 1);
 
 const lines: string[] = [];
 lines.push(`Source: ${doc.source}`);
@@ -28,11 +30,20 @@ lines.push(`Duration: ${formatDuration(doc.durationMs)}`);
 lines.push("");
 lines.push("Speaker counts:");
 for (const speaker of speakers) {
-  const count = words.filter((word) => word.speaker === speaker).length;
+  const count = wordCounts.get(speaker) ?? 0;
   const alias = aliases[speaker] ? ` -> ${aliases[speaker]}` : "";
   lines.push(`- ${speaker}${alias}: ${count}`);
 }
 lines.push("");
+
+if (Object.keys(aliases).length > 0) {
+  lines.push("Counts by display name:");
+  for (const group of displayGroups(speakers, aliases, wordCounts)) {
+    const raw = group.speakers.join(", ");
+    lines.push(`- ${group.name}: ${group.count} (${raw})`);
+  }
+  lines.push("");
+}
 
 lines.push("Opening turns:");
 for (const turn of coalesceTurns(words).slice(0, args.turns)) {
@@ -104,6 +115,23 @@ function aliasSuffix(speaker: string): string {
   return aliases[speaker] ? ` -> ${aliases[speaker]}` : "";
 }
 
+function displayGroups(speakers: string[], aliases: Record<string, string>, wordCounts: Map<string, number>) {
+  const groups: Array<{ name: string; speakers: string[]; count: number }> = [];
+  const byName = new Map<string, { name: string; speakers: string[]; count: number }>();
+  for (const speaker of speakers) {
+    const name = aliases[speaker] || speaker;
+    let group = byName.get(name);
+    if (!group) {
+      group = { name, speakers: [], count: 0 };
+      byName.set(name, group);
+      groups.push(group);
+    }
+    group.speakers.push(speaker);
+    group.count += wordCounts.get(speaker) ?? 0;
+  }
+  return groups;
+}
+
 function clip(text: string, width: number): string {
   if (text.length <= width) return text;
   return `${text.slice(0, Math.max(0, width - 1))}...`;
@@ -123,4 +151,3 @@ function requireValue(argv: string[], index: number, flag: string): string {
   if (value === undefined) throw new Error(`${flag} requires a value`);
   return value;
 }
-

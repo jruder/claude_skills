@@ -43,7 +43,7 @@ bun --env-file <skill-path>/scripts/.env <skill-path>/scripts/apply-aliases.ts "
   --rename speaker_2=Dave
 ```
 
-6. Re-check the first Markdown lines and final artifact paths before reporting completion.
+6. Re-check the first Markdown lines and final artifact paths before reporting completion. When aliases merge multiple raw IDs, verify that the speaker report's "Counts by display name" section and the HTML speaker panel collapse them under the assigned name.
 
 ## Speaker Assignment Heuristics
 
@@ -76,7 +76,6 @@ bun -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[
 - `scripts/transcribe-mistral.ts`: lower-level Mistral/Voxtral transcriber and HTML renderer; supports `--rerender-from-json` and repeated `--rename raw=name`.
 - `scripts/apply-aliases.ts`: rerender aliases into existing JSON/HTML/Markdown without another API call.
 - `scripts/render-markdown.ts`: render Markdown from transcript JSON.
-- `scripts/speaker-report.ts`: summarize speaker counts, opening turns, and samples per raw speaker.
+- `scripts/speaker-report.ts`: summarize raw speaker counts, collapsed display-name counts after aliases, opening turns, and samples per raw speaker.
 
 For long recordings or upload failures, pass `--chunk-seconds <n>` to `run.ts`; note that chunked mode can make speaker labels less stable across chunks, so alias mapping may require more merging.
-
